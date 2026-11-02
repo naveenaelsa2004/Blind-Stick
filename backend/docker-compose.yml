@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smart-blind-stick-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_PATH=/app/data/sensor_readings.db
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      # Persistent SQLite database storage on host machine
+      - ../data:/app/data

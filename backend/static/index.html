@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Real-time telemetry and obstacle detection dashboard for IoT-Based Smart Blind Stick">
+  <title>Smart Blind Stick — Real-Time IoT Dashboard</title>
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js for real-time visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- System Alert Banner (for backend offline or stale data) -->
+  <div id="system-alert-banner" class="alert-banner hidden">
+    <span class="alert-icon" id="alert-icon">⚠️</span>
+    <span class="alert-text" id="alert-text">System notice</span>
+  </div>
+
+  <div class="app-layout">
+    <!-- Header / Nav -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+            <path d="M2 12h20"></path>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <h1>Smart Blind Stick</h1>
+          <span class="brand-tag">IoT Obstacle Detection Telemetry</span>
+        </div>
+      </div>
+
+      <!-- Quick status pills -->
+      <div class="header-status-group">
+        <div class="status-pill" id="backend-status-pill">
+          <span class="pulse-dot" id="backend-dot"></span>
+          <span class="status-label">Backend:</span>
+          <span class="status-val" id="backend-status-text">Connecting...</span>
+        </div>
+
+        <div class="status-pill" id="esp32-status-pill">
+          <span class="pulse-dot idle" id="esp32-dot"></span>
+          <span class="status-label">Device:</span>
+          <span class="status-val" id="device-id-text">blind-stick-01</span>
+        </div>
+
+        <div class="status-pill timer-pill">
+          <span class="status-label">Last Ping:</span>
+          <span class="status-val font-mono" id="last-ping-text">--</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <main class="dashboard-grid">
+      <!-- 1. Hero Distance Indicator Card -->
+      <section class="card hero-distance-card" id="hero-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-eyebrow">Real-Time Distance</span>
+            <h2>Obstacle Proximity</h2>
+          </div>
+          <div class="warning-badge-wrapper">
+            <span class="warning-badge badge-unknown" id="warning-badge">UNKNOWN</span>
+          </div>
+        </div>
+
+        <div class="hero-body">
+          <div class="distance-display-wrapper">
+            <div class="distance-number-group">
+              <span class="distance-huge font-mono" id="distance-value">--</span>
+              <span class="distance-unit" id="distance-unit">cm</span>
+            </div>
+            <div class="distance-subtext" id="distance-description">
+              Waiting for initial sensor reading from ESP32...
+            </div>
+          </div>
+
+          <!-- Gauge Proximity Bar -->
+          <div class="proximity-gauge-container">
+            <div class="gauge-labels">
+              <span>0 cm (Very Close)</span>
+              <span>15 cm</span>
+              <span>30 cm</span>
+              <span>60 cm</span>
+              <span>100 cm (Clear)</span>
+            </div>
+            <div class="gauge-track">
+              <div class="gauge-fill" id="gauge-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Buzzer Simulation / Audio Rhythm Indicator -->
+          <div class="buzzer-rhythm-strip">
+            <div class="rhythm-info">
+              <span class="rhythm-label">Hardware Buzzer (GPIO 19):</span>
+              <span class="rhythm-state font-mono" id="buzzer-state-text">Silent (Path Clear or Unknown)</span>
+            </div>
+            <div class="rhythm-visualizer" id="rhythm-visualizer">
+              <div class="rhythm-bar"></div>
+              <div class="rhythm-bar"></div>
+              <div class="rhythm-bar"></div>
+              <div class="rhythm-bar"></div>
+              <div class="rhythm-bar"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <p class="safety-disclaimer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            College prototype warning levels for demonstration — not a safety-certified navigation device.
+          </p>
+        </div>
+      </section>
+
+      <!-- 2. System Stat Summary Cards -->
+      <aside class="summary-stats-column">
+        <div class="stat-card">
+          <div class="stat-icon icon-blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <span class="stat-label">Total Readings</span>
+            <span class="stat-value font-mono" id="total-readings-count">0</span>
+            <span class="stat-detail">Recorded in current session</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon icon-emerald">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <span class="stat-label">Poll Frequency</span>
+            <span class="stat-value font-mono" id="poll-rate-val">~1.5s</span>
+            <span class="stat-detail">HTTP client transmission</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon icon-purple">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <span class="stat-label">Database Storage</span>
+            <span class="stat-value" id="db-health-badge">SQLite OK</span>
+            <span class="stat-detail">Persistent container volume</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon icon-amber">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <span class="stat-label">Sensor Latency</span>
+            <span class="stat-value font-mono" id="sensor-latency-val">--</span>
+            <span class="stat-detail">Elapsed since last packet</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 3. Real-Time Chart Card -->
+      <section class="card chart-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-eyebrow">Time-Series Telemetry</span>
+            <h2>Obstacle Distance Profile</h2>
+          </div>
+          <div class="chart-controls">
+            <span class="chart-points-tag">Last 25 data points</span>
+            <button class="btn-ghost" id="btn-refresh-chart" title="Manually sync telemetry">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+              </svg>
+              Sync
+            </button>
+          </div>
+        </div>
+
+        <div class="chart-container-wrapper">
+          <canvas id="distanceChart"></canvas>
+          <div id="chart-empty-overlay" class="empty-overlay">
+            <p>Waiting for sensor data stream...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Historical Readings Table Card -->
+      <section class="card table-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-eyebrow">Database Audit Log</span>
+            <h2>Recent Telemetry Records</h2>
+          </div>
+          <div class="table-info">
+            <span class="table-count-badge font-mono" id="table-row-count">0 records</span>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table" id="readings-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Device</th>
+                <th>Distance (cm)</th>
+                <th>Status</th>
+                <th>Warning Level</th>
+                <th>Timestamp (UTC)</th>
+              </tr>
+            </thead>
+            <tbody id="readings-tbody">
+              <tr>
+                <td colspan="6" class="table-placeholder">No sensor telemetry recorded in database yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span>IoT-Based Smart Blind Stick &bull; ESP32 DevKit V1 &bull; HC-SR04 &bull; Buzzer GPIO 19</span>
+      </div>
+      <div class="footer-right">
+        <span>FastAPI + SQLite + Docker Persistence</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

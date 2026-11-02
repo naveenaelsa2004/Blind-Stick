@@ -1,0 +1,46 @@
+/**
+ * @file config.h
+ * @brief Configuration parameters for Smart Blind Stick Wi-Fi and Backend Telemetry.
+ */
+
+#pragma once
+
+// ============================================================================
+// 1. WI-FI NETWORK CREDENTIALS
+// ============================================================================
+// Set these to match your local 2.4 GHz Wi-Fi router / smartphone hotspot.
+// Note: ESP32 only supports 2.4 GHz Wi-Fi networks (not 5 GHz).
+#define WIFI_SSID       "YOUR_WIFI_SSID"
+#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
+
+// ============================================================================
+// 2. BACKEND SERVER CONFIGURATION
+// ============================================================================
+// CRITICAL WINDOWS NETWORKING NOTE:
+// Do NOT use "localhost" or "127.0.0.1" here!
+// On the ESP32, "localhost" refers to the ESP32 itself, NOT your computer.
+// You MUST use your computer's reachable IPv4 address on the local network.
+//
+// How to find your computer's IP on Windows:
+//   1. Open PowerShell or Command Prompt.
+//   2. Run: ipconfig
+//   3. Look for "IPv4 Address" under your active Wi-Fi or Ethernet adapter.
+//   Example: "192.168.31.153"
+//
+// Match the exposed backend port (default: 8000).
+#define BACKEND_BASE_URL "http://192.168.31.153:8000"
+#define BACKEND_ENDPOINT "/api/readings"
+
+// ============================================================================
+// 3. DEVICE & TELEMETRY SETTINGS
+// ============================================================================
+// Unique device identifier for this stick
+#define DEVICE_ID        "blind-stick-01"
+
+// Telemetry transmit interval (ms)
+// 1500 ms = transmits reading approximately every 1.5 seconds without flooding
+#define TELEMETRY_INTERVAL_MS 1500UL
+
+// HTTP client timeout (ms)
+// A short timeout (1200 ms) prevents the telemetry task from hanging if network drops
+#define HTTP_TIMEOUT_MS  1200
