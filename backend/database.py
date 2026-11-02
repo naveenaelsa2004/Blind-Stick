@@ -16,9 +16,16 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", os.path.join(DEFAULT_DB_DIR, DEFAULT_
 
 def get_db_path() -> str:
     """Return the absolute path to the SQLite database, ensuring its directory exists."""
-    abs_path = os.path.abspath(DATABASE_PATH)
-    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-    return abs_path
+    global DATABASE_PATH
+    try:
+        abs_path = os.path.abspath(DATABASE_PATH)
+        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+        return abs_path
+    except (PermissionError, OSError):
+        fallback_dir = "/tmp" if os.path.exists("/tmp") and os.access("/tmp", os.W_OK) else os.getcwd()
+        fallback_path = os.path.join(fallback_dir, "sensor_readings.db")
+        DATABASE_PATH = fallback_path
+        return fallback_path
 
 
 def get_connection() -> sqlite3.Connection:

@@ -44,3 +44,9 @@
 // HTTP client timeout (ms)
 // A short timeout (1200 ms) prevents the telemetry task from hanging if network drops
 #define HTTP_TIMEOUT_MS  1200
+
+// ============================================================================
+// 4. CLOUD API SECURITY
+// ============================================================================
+// Secret API Key matching the backend API_KEY environment variable (or empty if not used)
+#define API_KEY          "YOUR_RENDER_API_KEY"
