@@ -551,6 +551,7 @@ void telemetryTask(void *pvParameters) {
             secureClient.setInsecure(); // Permits connection to cloud platforms (Render, etc.) without hardcoding CA root certs
             http.begin(secureClient, fullUrl);
             http.addHeader("Content-Type", "application/json");
+            http.addHeader("x-api-key", API_KEY);
             http.setTimeout(HTTP_TIMEOUT_MS);
             httpResponseCode = http.POST((uint8_t *)jsonPayload, strlen(jsonPayload));
             http.end();
@@ -558,6 +559,7 @@ void telemetryTask(void *pvParameters) {
             WiFiClient plainClient;
             http.begin(plainClient, fullUrl);
             http.addHeader("Content-Type", "application/json");
+            http.addHeader("x-api-key", API_KEY);
             http.setTimeout(HTTP_TIMEOUT_MS);
             httpResponseCode = http.POST((uint8_t *)jsonPayload, strlen(jsonPayload));
             http.end();

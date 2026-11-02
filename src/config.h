@@ -35,3 +35,10 @@
 
 // HTTP client timeout (ms)
 #define HTTP_TIMEOUT_MS  1200
+
+// ============================================================================
+// 4. CLOUD API SECURITY
+// ============================================================================
+// Secret API Key for Render cloud telemetry ingestion
+#define API_KEY          "blind-stick-secret-key-2026"
+

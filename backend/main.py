@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,6 +26,9 @@ from database import (
 
 # Ensure database schema is ready immediately on import as well as lifespan
 init_db()
+
+# Optional API Key for securing cloud telemetry ingestion (configured via environment or render.yaml)
+API_KEY = os.getenv("API_KEY", "").strip()
 
 # -----------------------------------------------------------------------------
 # Lifespan Context Manager (Initializes DB on startup)
@@ -125,11 +128,20 @@ async def get_health() -> Dict[str, Any]:
 
 
 @app.post("/api/readings", status_code=status.HTTP_201_CREATED, tags=["Readings"])
-async def post_reading(payload: SensorReadingPayload) -> Dict[str, Any]:
+async def post_reading(payload: SensorReadingPayload, request: Request) -> Dict[str, Any]:
     """
     Accepts telemetry readings from ESP32, validates payload, and persists to SQLite.
-    Rejects malformed requests with 422 or 400 status codes.
+    Verifies x-api-key if API_KEY is configured on the backend.
     """
+    # Enforce API Key authentication if configured on Render / environment
+    if API_KEY:
+        provided_key = request.headers.get("x-api-key") or request.query_params.get("api_key")
+        if provided_key != API_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or missing API key. Please provide 'x-api-key' header.",
+            )
+
     try:
         inserted_id = insert_reading(
             device_id=payload.device_id,
