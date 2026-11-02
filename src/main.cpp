@@ -159,11 +159,11 @@ void setup() {
     }
 
     // Launch background telemetry task on Core 0
-    // This isolates network latencies and Wi-Fi handshakes from the real-time sensor/buzzer loop on Core 1!
+    // Stack size set to 10240 to support MbedTLS HTTPS operations without stack overflow
     xTaskCreatePinnedToCore(
         telemetryTask,        // Function to implement the task
         "TelemetryTask",      // Name of the task
-        4096,                 // Stack size in words
+        10240,                // Stack size in words (expanded for MbedTLS HTTPS)
         NULL,                 // Task input parameter
         1,                    // Priority of the task
         NULL,                 // Task handle
@@ -542,27 +542,39 @@ void telemetryTask(void *pvParameters) {
                      DEVICE_ID);
         }
 
-        // Send HTTP / HTTPS POST request with timeout
-        HTTPClient http;
+        // Send HTTP / HTTPS POST request with proper scope lifecycle to prevent dangling pointers
         int httpResponseCode = -1;
+        String httpError = "";
 
         if (fullUrl.startsWith("https://")) {
             WiFiClientSecure secureClient;
-            secureClient.setInsecure(); // Permits connection to cloud platforms (Render, etc.) without hardcoding CA root certs
-            http.begin(secureClient, fullUrl);
-            http.addHeader("Content-Type", "application/json");
-            http.addHeader("x-api-key", API_KEY);
-            http.setTimeout(HTTP_TIMEOUT_MS);
-            httpResponseCode = http.POST((uint8_t *)jsonPayload, strlen(jsonPayload));
-            http.end();
+            secureClient.setInsecure(); // Permits connection to cloud platforms without hardcoding CA certs
+            HTTPClient http;
+            if (http.begin(secureClient, fullUrl)) {
+                http.addHeader("Content-Type", "application/json");
+                http.addHeader("x-api-key", API_KEY);
+                http.setTimeout(HTTP_TIMEOUT_MS);
+                httpResponseCode = http.POST((uint8_t *)jsonPayload, strlen(jsonPayload));
+                if (httpResponseCode <= 0) {
+                    httpError = http.errorToString(httpResponseCode);
+                }
+                http.end();
+            }
+            secureClient.stop();
         } else {
             WiFiClient plainClient;
-            http.begin(plainClient, fullUrl);
-            http.addHeader("Content-Type", "application/json");
-            http.addHeader("x-api-key", API_KEY);
-            http.setTimeout(HTTP_TIMEOUT_MS);
-            httpResponseCode = http.POST((uint8_t *)jsonPayload, strlen(jsonPayload));
-            http.end();
+            HTTPClient http;
+            if (http.begin(plainClient, fullUrl)) {
+                http.addHeader("Content-Type", "application/json");
+                http.addHeader("x-api-key", API_KEY);
+                http.setTimeout(HTTP_TIMEOUT_MS);
+                httpResponseCode = http.POST((uint8_t *)jsonPayload, strlen(jsonPayload));
+                if (httpResponseCode <= 0) {
+                    httpError = http.errorToString(httpResponseCode);
+                }
+                http.end();
+            }
+            plainClient.stop();
         }
 
         if (httpResponseCode >= 200 && httpResponseCode < 300) {
@@ -570,7 +582,7 @@ void telemetryTask(void *pvParameters) {
                           httpResponseCode, dist);
         } else {
             Serial.printf("[Core 0] HTTP POST failed, code: %d, error: %s\n",
-                          httpResponseCode, http.errorToString(httpResponseCode).c_str());
+                          httpResponseCode, httpError.c_str());
         }
     }
 }
