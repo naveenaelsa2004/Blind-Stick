@@ -50,11 +50,11 @@ const float SOUND_SPEED_CM_PER_US = 0.0343f;
 // HC-SR04 measurement timeout (microseconds):
 // 400 cm maximum distance * 2 (round trip) / 0.0343 ≈ 23323 µs.
 // A timeout of 26000 µs prevents the code from blocking if no echo is returned.
-const unsigned long ECHO_TIMEOUT_US = 26000UL;
+const unsigned long ECHO_TIMEOUT_US = 35000UL;
 
 // Minimum and maximum valid distance limits for HC-SR04 in cm
 const float MIN_VALID_DISTANCE_CM = 2.0f;
-const float MAX_VALID_DISTANCE_CM = 400.0f;
+const float MAX_VALID_DISTANCE_CM = 500.0f;
 
 // Beep duration: Short, intermittent audible pulse (50–70 ms)
 // The buzzer NEVER stays continuously ON, even at the closest distance!
@@ -239,24 +239,39 @@ void setBuzzer(bool turnOn) {
  * @param[out] distanceOut Calculated distance in centimeters.
  * @return true if valid reading obtained; false on timeout or out-of-range.
  */
+static unsigned long lastDurationUs = 0;
+static float lastRawDist = 0.0f;
+
 bool readRawDistanceCm(float &distanceOut) {
-    // Send a clean 10 µs HIGH trigger pulse
+    // If ECHO pin is stuck HIGH from an earlier out-of-range pulse, unstick it:
+    if (digitalRead(PIN_ECHO) == HIGH) {
+        pinMode(PIN_ECHO, OUTPUT);
+        digitalWrite(PIN_ECHO, LOW);
+        delayMicroseconds(10);
+        pinMode(PIN_ECHO, INPUT);
+        delayMicroseconds(10);
+    }
+
+    // Send a clean 12 µs HIGH trigger pulse
     digitalWrite(PIN_TRIG, LOW);
-    delayMicroseconds(2);
+    delayMicroseconds(4);
     digitalWrite(PIN_TRIG, HIGH);
-    delayMicroseconds(10);
+    delayMicroseconds(12);
     digitalWrite(PIN_TRIG, LOW);
 
-    // Measure duration of the HIGH pulse on ECHO pin
-    unsigned long durationUs = pulseIn(PIN_ECHO, HIGH, ECHO_TIMEOUT_US);
+    // Measure duration of the HIGH pulse on ECHO pin (35ms covers full HC-SR04 cycle)
+    unsigned long durationUs = pulseIn(PIN_ECHO, HIGH, 35000UL);
+    lastDurationUs = durationUs;
 
     // Check for timeout
     if (durationUs == 0) {
+        lastRawDist = -1.0f;
         return false;
     }
 
     // Distance in cm = (duration in µs * speed of sound) / 2
     float calculatedDist = (durationUs * SOUND_SPEED_CM_PER_US) / 2.0f;
+    lastRawDist = calculatedDist;
 
     // Validate against sensor physical limits
     if (calculatedDist < MIN_VALID_DISTANCE_CM || calculatedDist > MAX_VALID_DISTANCE_CM) {
@@ -407,7 +422,8 @@ void updateBuzzerPattern(unsigned long currentMillis, WarningLevel level, int in
  */
 void printSerialStatus(unsigned long currentMillis) {
     if (currentLevel == LEVEL_UNKNOWN || !isSensorReadingValid) {
-        Serial.println("Distance: UNKNOWN | Sensor reading invalid");
+        Serial.printf("Distance: UNKNOWN | Raw: %.1f cm | Pulse: %lu us | Echo: %d\n",
+                      lastRawDist, lastDurationUs, digitalRead(PIN_ECHO));
         return;
     }
 

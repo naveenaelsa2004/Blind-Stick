@@ -64,7 +64,7 @@ app.add_middleware(
 # -----------------------------------------------------------------------------
 class SensorReadingPayload(BaseModel):
     device_id: str = Field(..., min_length=1, max_length=64, description="Unique identifier of the ESP32 device")
-    distance_cm: Optional[float] = Field(None, description="Measured obstacle distance in centimeters (2.0 to 400.0)")
+    distance_cm: Optional[float] = Field(None, description="Measured obstacle distance in centimeters (2.0 to 500.0)")
     status: str = Field(..., description="Sensor reading status: 'valid' or 'unknown'")
 
     @field_validator("device_id")
@@ -88,9 +88,9 @@ class SensorReadingPayload(BaseModel):
         if self.status == "valid":
             if self.distance_cm is None:
                 raise ValueError("distance_cm must be provided when status is 'valid'")
-            if self.distance_cm < 2.0 or self.distance_cm > 400.0:
+            if self.distance_cm < 2.0 or self.distance_cm > 500.0:
                 raise ValueError(
-                    f"distance_cm ({self.distance_cm}) is outside valid HC-SR04 physical range [2.0, 400.0] cm"
+                    f"distance_cm ({self.distance_cm}) is outside valid HC-SR04 physical range [2.0, 500.0] cm"
                 )
             self.distance_cm = round(self.distance_cm, 2)
         elif self.status == "unknown":
